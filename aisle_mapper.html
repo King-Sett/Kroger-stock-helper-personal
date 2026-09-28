@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0b0d12" />
+<title>Aisle Mapper</title>
+<style>
+  :root {
+    --bg: #0b0d12;
+    --panel: #131722;
+    --panel2: #1a2030;
+    --text: #f5f7fb;
+    --muted: #9aa5b5;
+    --line: #2a3347;
+    --good: #45d483;
+    --warn: #ffca5c;
+    --bad: #ff6b6b;
+    --accent: #5aa9ff;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    min-height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  body { padding: 14px; }
+
+  .app {
+    width: min(1100px, 100%);
+    margin: 0 auto;
+    display: grid;
+    gap: 12px;
+  }
+
+  .topbar {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+
+  h1 {
+    font-size: clamp(1.35rem, 4vw, 2rem);
+    margin: 0;
+  }
+
+  .status {
+    padding: 8px 11px;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    border-radius: 12px;
+    color: var(--muted);
+    font-size: .9rem;
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 12px;
+  }
+
+  .setup-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  label {
+    display: grid;
+    gap: 6px;
+    font-size: .8rem;
+    color: var(--muted);
+    font-weight: 700;
+  }
+
+  input, select, button {
+    font: inherit;
+  }
+
+  input, select {
+    width: 100%;
+    border: 1px solid var(--line);
+    background: var(--panel2);
+    color: var(--text);
+    border-radius: 11px;
+    padding: 12px;
+    outline: none;
+  }
+
+  input:focus, select:focus { border-color: var(--accent); }
+
+  .scanner-wrap {
+    position: relative;
+    overflow: hidden;
+    border-radius: 14px;
+    background: #000;
+    min-height: 240px;
+    aspect-ratio: 16 / 9;
+  }
+
+  video, canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  canvas { pointer-events: none; }
+
+  .scan-hud {
+    position: absolute;
+    inset: 10px 10px auto 10px;
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    z-index: 3;
+    pointer-events: none;
+  }
+
+  .hud-box {
+    background: rgba(0, 0, 0, .68);
+    border: 1px solid rgba(255,255,255,.18);
+    border-radius: 12px;
+    padding: 8px 10px;
+    backdrop-filter: blur(6px);
+  }
+
+  .hud-main { font-weight: 900; }
+  .hud-sub { color: #d0d6df; font-size: .8rem; margin-top: 2px; }
+
+  .controls {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 9px;
+    margin-top: 10px;
+  }
+
+  button {
+    border: 1px solid var(--line);
+    background: var(--panel2);
+    color: var(--text);
+    border-radius: 12px;
+    padding: 13px 12px;
+    font-weight: 800;
+    cursor: pointer;
+    min-height: 48px;
+  }
+
+  button.primary { background: var(--accent); color: #06101e; border-color: transparent; }
+  button.good { background: var(--good); color: #06150b; border-color: transparent; }
+  button.warn { background: var(--warn); color: #1c1503; border-color: transparent; }
+  button.bad { background: #3a1f25; color: #ffd7dc; border-color: #6c3340; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .stat {
+    border: 1px solid var(--line);
+    background: var(--panel2);
+    border-radius: 12px;
+    padding: 10px;
+  }
+
+  .stat .n { font-size: 1.5rem; font-weight: 900; }
+  .stat .k { color: var(--muted); font-size: .78rem; }
+
+  .list-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+
+  .list-head h2 { font-size: 1rem; margin: 0; }
+
+  .barcode-list {
+    display: grid;
+    gap: 7px;
+    max-height: 430px;
+    overflow: auto;
+  }
+
+  .barcode-item {
+    display: grid;
+    grid-template-columns: 42px 1fr auto;
+    gap: 10px;
+    align-items: center;
+    border: 1px solid var(--line);
+    background: var(--panel2);
+    border-radius: 12px;
+    padding: 9px;
+  }
+
+  .pos {
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+    background: #0f1420;
+    font-weight: 900;
+  }
+
+  .code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-weight: 900;
+    word-break: break-all;
+  }
+
+  .meta { color: var(--muted); font-size: .76rem; margin-top: 2px; }
+
+  .tiny-btn {
+    padding: 8px 9px;
+    min-height: 36px;
+    font-size: .82rem;
+  }
+
+  .bottom-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .export-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0,1fr));
+    gap: 8px;
+  }
+
+  .notice {
+    color: var(--muted);
+    font-size: .83rem;
+    line-height: 1.35;
+  }
+
+  .notice strong { color: var(--text); }
+
+  .flash {
+    animation: flash .28s ease-out;
+  }
+
+  @keyframes flash {
+    0% { box-shadow: 0 0 0 0 rgba(69, 212, 131, .75); }
+    100% { box-shadow: 0 0 0 12px rgba(69, 212, 131, 0); }
+  }
+
+  @media (max-width: 760px) {
+    body { padding: 8px; }
+    .setup-grid { grid-template-columns: 1fr 1fr; }
+    .controls { grid-template-columns: 1fr 1fr; }
+    .stats { grid-template-columns: 1fr 1fr; }
+    .bottom-grid { grid-template-columns: 1fr; }
+    .export-row { grid-template-columns: 1fr; }
+    .scanner-wrap { min-height: 280px; aspect-ratio: 4 / 3; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <h1>Aisle Mapper</h1>
+    <div class="status" id="statusText">Ready</div>
+  </div>
+
+  <section class="panel">
+    <div class="setup-grid">
+      <label>Aisle
+        <input id="aisleInput" value="A1" autocomplete="off" />
+      </label>
+      <label>Bay
+        <input id="bayInput" type="number" value="1" min="1" inputmode="numeric" />
+      </label>
+      <label>Row
+        <input id="rowInput" type="number" value="1" min="1" inputmode="numeric" />
+      </label>
+      <label>Scan direction
+        <select id="directionInput">
+          <option value="rtl">Right to Left</option>
+          <option value="ltr">Left to Right</option>
+        </select>
+      </label>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="scanner-wrap" id="scannerWrap">
+      <video id="video" playsinline muted autoplay></video>
+      <canvas id="overlay"></canvas>
+      <div class="scan-hud">
+        <div class="hud-box">
+          <div class="hud-main" id="hudLocation">A1 · Bay 1 · Row 1</div>
+          <div class="hud-sub" id="hudDirection">Right → Left</div>
+        </div>
+        <div class="hud-box">
+          <div class="hud-main"><span id="hudUnique">0</span> unique</div>
+          <div class="hud-sub"><span id="hudReads">0</span> total reads</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="primary" id="startBtn">Start Scan</button>
+      <button id="pauseBtn" disabled>Pause</button>
+      <button class="good" id="nextRowBtn">Save + Next Row</button>
+      <button class="warn" id="nextBayBtn">Save + Next Bay</button>
+      <button id="torchBtn" disabled>Flashlight</button>
+      <button id="undoBtn">Undo Last</button>
+      <button class="bad" id="clearBtn">Clear Current Row</button>
+      <button id="saveBtn">Save Row</button>
+    </div>
+  </section>
+
+  <section class="stats">
+    <div class="stat"><div class="n" id="statUnique">0</div><div class="k">Unique barcodes</div></div>
+    <div class="stat"><div class="n" id="statReads">0</div><div class="k">Total detections</div></div>
+    <div class="stat"><div class="n" id="statSavedRows">0</div><div class="k">Saved rows</div></div>
+    <div class="stat"><div class="n" id="statSavedItems">0</div><div class="k">Saved locations</div></div>
+  </section>
+
+  <section class="panel">
+    <div class="list-head">
+      <h2>Current row order</h2>
+      <div class="notice">Order uses first seen time plus horizontal position.</div>
+    </div>
+    <div class="barcode-list" id="barcodeList"></div>
+  </section>
+
+  <div class="bottom-grid">
+    <section class="panel">
+      <div class="list-head"><h2>Find a barcode</h2></div>
+      <input id="lookupInput" placeholder="Type or paste UPC" autocomplete="off" inputmode="numeric" />
+      <div id="lookupResult" class="notice" style="margin-top:10px">Saved locations will appear here.</div>
+    </section>
+
+    <section class="panel">
+      <div class="list-head"><h2>Backup</h2></div>
+      <div class="export-row">
+        <button class="good" id="backupNowBtn">Backup Now</button>
+        <button class="primary" id="restoreBtn">Restore Backup</button>
+        <button id="autoBackupBtn">Enable Auto Backup</button>
+        <button id="exportTxtBtn">Export TXT</button>
+        <button id="exportCsvBtn">Export CSV</button>
+      </div>
+      <input id="importFile" type="file" accept="application/json,.json" hidden />
+      <p class="notice" id="backupStatus"><strong>Recovery:</strong> IndexedDB is the fast working copy. Backup Now creates a real JSON file outside browser storage. Restore Backup can rebuild the database after browser data is cleared.</p>
+    </section>
+  </div>
+
+  <section class="panel notice" id="compatNotice">
+    This scanner uses the browser's built in BarcodeDetector API. If your browser does not support it, the page will tell you instead of pretending it is scanning.
+  </section>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const $ = (id) => document.getElementById(id);
+
+  const els = {
+    aisle: $('aisleInput'), bay: $('bayInput'), row: $('rowInput'), direction: $('directionInput'),
+    video: $('video'), overlay: $('overlay'), scannerWrap: $('scannerWrap'), status: $('statusText'),
+    start: $('startBtn'), pause: $('pauseBtn'), nextRow: $('nextRowBtn'), nextBay: $('nextBayBtn'),
+    torch: $('torchBtn'), undo: $('undoBtn'), clear: $('clearBtn'), save: $('saveBtn'),
+    barcodeList: $('barcodeList'), lookup: $('lookupInput'), lookupResult: $('lookupResult'),
+    backupNow: $('backupNowBtn'), restoreBtn: $('restoreBtn'), autoBackup: $('autoBackupBtn'),
+    exportTxt: $('exportTxtBtn'), exportCsv: $('exportCsvBtn'), importFile: $('importFile'), backupStatus: $('backupStatus'),
+    hudLocation: $('hudLocation'), hudDirection: $('hudDirection'), hudUnique: $('hudUnique'), hudReads: $('hudReads'),
+    statUnique: $('statUnique'), statReads: $('statReads'), statSavedRows: $('statSavedRows'), statSavedItems: $('statSavedItems'),
+    compatNotice: $('compatNotice')
+  };
+
+  let db = null;
+  let detector = null;
+  let stream = null;
+  let scanning = false;
+  let detectorBusy = false;
+  let torchOn = false;
+  let totalReads = 0;
+  let scanTimer = null;
+  let lastFrameDetections = [];
+  let backupFileHandle = null;
+  let autoBackupEnabled = false;
+  const current = new Map();
+  const firstSeenStack = [];
+
+  const SCAN_INTERVAL_MS = 95;
+  const SAME_VIEW_WINDOW_MS = 700;
+
+  function setStatus(text) {
+    els.status.textContent = text;
+  }
+
+  function currentLocation() {
+    return {
+      aisle: (els.aisle.value || 'A1').trim(),
+      bay: Math.max(1, Number(els.bay.value) || 1),
+      row: Math.max(1, Number(els.row.value) || 1),
+      direction: els.direction.value === 'ltr' ? 'ltr' : 'rtl'
+    };
+  }
+
+  function updateHud() {
+    const loc = currentLocation();
+    els.hudLocation.textContent = `${loc.aisle} · Bay ${loc.bay} · Row ${loc.row}`;
+    els.hudDirection.textContent = loc.direction === 'rtl' ? 'Right → Left' : 'Left → Right';
+    els.hudUnique.textContent = current.size;
+    els.hudReads.textContent = totalReads;
+    els.statUnique.textContent = current.size;
+    els.statReads.textContent = totalReads;
+  }
+
+  function average(arr) {
+    if (!arr.length) return 0;
+    return arr.reduce((a, b) => a + b, 0) / arr.length;
+  }
+
+  function getOrderedItems() {
+    const items = [...current.values()].sort((a, b) => a.firstSeen - b.firstSeen);
+    if (items.length < 2) return items;
+
+    const groups = [];
+    let group = [];
+    let groupStart = null;
+
+    for (const item of items) {
+      if (!group.length) {
+        group = [item];
+        groupStart = item.firstSeen;
+      } else if (item.firstSeen - groupStart <= SAME_VIEW_WINDOW_MS) {
+        group.push(item);
+      } else {
+        groups.push(group);
+        group = [item];
+        groupStart = item.firstSeen;
+      }
+    }
+    if (group.length) groups.push(group);
+
+    const dir = currentLocation().direction;
+    const out = [];
+    for (const g of groups) {
+      g.sort((a, b) => {
+        const ax = average(a.xSamples);
+        const bx = average(b.xSamples);
+        return dir === 'rtl' ? bx - ax : ax - bx;
+      });
+      out.push(...g);
+    }
+    return out;
+  }
+
+  function renderList() {
+    const ordered = getOrderedItems();
+    els.barcodeList.innerHTML = '';
+
+    if (!ordered.length) {
+      els.barcodeList.innerHTML = '<div class="notice">Nothing scanned in this row yet.</div>';
+      updateHud();
+      return;
+    }
+
+    ordered.forEach((item, index) => {
+      const div = document.createElement('div');
+      div.className = 'barcode-item';
+      div.innerHTML = `
+        <div class="pos">${index + 1}</div>
+        <div>
+          <div class="code"></div>
+          <div class="meta"></div>
+        </div>
+        <button class="tiny-btn bad" type="button">Remove</button>
+      `;
+      div.querySelector('.code').textContent = item.rawValue;
+      div.querySelector('.meta').textContent = `${item.format || 'barcode'} · seen ${item.seenCount}×`;
+      div.querySelector('button').addEventListener('click', () => {
+        current.delete(item.rawValue);
+        const idx = firstSeenStack.lastIndexOf(item.rawValue);
+        if (idx >= 0) firstSeenStack.splice(idx, 1);
+        renderList();
+      });
+      els.barcodeList.appendChild(div);
+    });
+
+    updateHud();
+  }
+
+  function addDetection(code, videoWidth) {
+    if (!code || !code.rawValue) return false;
+
+    const now = performance.now();
+    const raw = String(code.rawValue).trim();
+    if (!raw) return false;
+
+    const box = code.boundingBox || { x: 0, width: 1 };
+    const centerX = box.x + box.width / 2;
+    const normalizedX = videoWidth > 0 ? centerX / videoWidth : 0.5;
+
+    totalReads++;
+
+    if (current.has(raw)) {
+      const item = current.get(raw);
+      item.lastSeen = now;
+      item.seenCount++;
+      item.xSamples.push(normalizedX);
+      if (item.xSamples.length > 12) item.xSamples.shift();
+      return false;
+    }
+
+    current.set(raw, {
+      rawValue: raw,
+      format: code.format || '',
+      firstSeen: now,
+      lastSeen: now,
+      seenCount: 1,
+      xSamples: [normalizedX]
+    });
+    firstSeenStack.push(raw);
+    flashScanner();
+    return true;
+  }
+
+  function flashScanner() {
+    els.scannerWrap.classList.remove('flash');
+    void els.scannerWrap.offsetWidth;
+    els.scannerWrap.classList.add('flash');
+  }
+
+  function resizeCanvas() {
+    const rect = els.video.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    els.overlay.width = Math.max(1, Math.round(rect.width * dpr));
+    els.overlay.height = Math.max(1, Math.round(rect.height * dpr));
+  }
+
+  function drawOverlay(codes) {
+    resizeCanvas();
+    const canvas = els.overlay;
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const vw = els.video.videoWidth || 1;
+    const vh = els.video.videoHeight || 1;
+    const cw = canvas.width / dpr;
+    const ch = canvas.height / dpr;
+
+    const videoAspect = vw / vh;
+    const boxAspect = cw / ch;
+    let drawW, drawH, offsetX, offsetY;
+
+    if (videoAspect > boxAspect) {
+      drawH = ch;
+      drawW = drawH * videoAspect;
+      offsetX = (cw - drawW) / 2;
+      offsetY = 0;
+    } else {
+      drawW = cw;
+      drawH = drawW / videoAspect;
+      offsetX = 0;
+      offsetY = (ch - drawH) / 2;
+    }
+
+    ctx.save();
+    ctx.scale(dpr, dpr);
+    ctx.lineWidth = 3;
+    ctx.font = '700 12px system-ui';
+
+    for (const code of codes) {
+      const b = code.boundingBox;
+      if (!b) continue;
+      const x = offsetX + (b.x / vw) * drawW;
+      const y = offsetY + (b.y / vh) * drawH;
+      const w = (b.width / vw) * drawW;
+      const h = (b.height / vh) * drawH;
+
+      ctx.strokeStyle = '#45d483';
+      ctx.fillStyle = 'rgba(69, 212, 131, .14)';
+      ctx.fillRect(x, y, w, h);
+      ctx.strokeRect(x, y, w, h);
+
+      const label = String(code.rawValue || '').slice(0, 18);
+      const textW = ctx.measureText(label).width + 10;
+      ctx.fillStyle = 'rgba(0,0,0,.78)';
+      ctx.fillRect(x, Math.max(0, y - 22), textW, 20);
+      ctx.fillStyle = '#fff';
+      ctx.fillText(label, x + 5, Math.max(14, y - 7));
+    }
+    ctx.restore();
+  }
+
+  const fallbackCanvas = document.createElement('canvas');
+  const fallbackCtx = fallbackCanvas.getContext('2d', { willReadFrequently: true });
+
+  function remapCroppedCode(code, cropY) {
+    const b = code.boundingBox;
+    return {
+      rawValue: code.rawValue,
+      format: code.format,
+      boundingBox: b ? {
+        x: b.x,
+        y: b.y + cropY,
+        width: b.width,
+        height: b.height,
+        top: b.top + cropY,
+        right: b.right,
+        bottom: b.bottom + cropY,
+        left: b.left
+      } : null
+    };
+  }
+
+  async function detectShelfStrip() {
+    const vw = els.video.videoWidth;
+    const vh = els.video.videoHeight;
+    if (!vw || !vh) return [];
+
+    // When a full-frame pass misses, rescan a wide horizontal shelf strip.
+    // Removing the ceiling/floor/background gives the decoder a much easier
+    // image while still keeping the whole row from left to right.
+    const cropH = Math.max(1, Math.round(vh * 0.50));
+    const cropY = Math.max(0, Math.round((vh - cropH) / 2));
+    fallbackCanvas.width = vw;
+    fallbackCanvas.height = cropH;
+    fallbackCtx.drawImage(els.video, 0, cropY, vw, cropH, 0, 0, vw, cropH);
+    const found = await detector.detect(fallbackCanvas);
+    return found.map(code => remapCroppedCode(code, cropY));
+  }
+
+  async function scanOnce() {
+    if (!scanning || detectorBusy || !detector || els.video.readyState < 2) return;
+    detectorBusy = true;
+    try {
+      let codes = await detector.detect(els.video);
+
+      // Shelf tags are physically small in a full camera frame. If the normal
+      // pass sees nothing, immediately try the shelf-focused strip before the
+      // next timer tick.
+      if (!codes.length) {
+        codes = await detectShelfStrip();
+      }
+
+      lastFrameDetections = codes;
+      let changed = false;
+      for (const code of codes) {
+        if (addDetection(code, els.video.videoWidth)) changed = true;
+      }
+      drawOverlay(codes);
+      if (changed) renderList();
+      else updateHud();
+    } catch (err) {
+      console.error(err);
+      setStatus(`Scan error: ${err.message || err}`);
+    } finally {
+      detectorBusy = false;
+    }
+  }
+
+  function scheduleScanning() {
+    clearInterval(scanTimer);
+    scanTimer = setInterval(scanOnce, SCAN_INTERVAL_MS);
+  }
+
+  async function initDetector() {
+    if (!('BarcodeDetector' in window)) {
+      detector = null;
+      els.compatNotice.innerHTML = '<strong>BarcodeDetector is not available in this browser.</strong> Try current Chrome on Android. This page will not fake detection.';
+      return false;
+    }
+
+    let supported = [];
+    try { supported = await BarcodeDetector.getSupportedFormats(); } catch (_) {}
+
+    // Do not restrict the scanner to grocery UPC/EAN only. Shelf labels often use
+    // internal retail symbologies such as Code 93, Codabar, or ITF. Ask the
+    // browser for every barcode format it says it can decode.
+    const usable = supported.filter(f => f && f !== 'unknown');
+
+    try {
+      detector = usable.length
+        ? new BarcodeDetector({ formats: usable })
+        : new BarcodeDetector();
+      els.compatNotice.innerHTML = `<strong>Scanner ready.</strong> Using all browser-supported formats: ${usable.join(', ') || 'browser defaults'}.`;
+      return true;
+    } catch (err) {
+      els.compatNotice.innerHTML = `<strong>Barcode detector failed to initialize.</strong> ${escapeHtml(err.message || String(err))}`;
+      detector = null;
+      return false;
+    }
+  }
+
+  async function requestCamera() {
+    // Ask for camera permission FIRST. Barcode support is checked only after
+    // the user has had a chance to approve the rear camera.
+    if (!navigator.mediaDevices?.getUserMedia) {
+      const protocol = location.protocol || 'unknown';
+      const secure = window.isSecureContext ? 'yes' : 'no';
+      throw new Error(`Camera API unavailable in this page context (protocol: ${protocol}, secure context: ${secure}). Try opening the page from HTTPS or an installed/local app context that allows camera access.`);
+    }
+
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { ideal: 'environment' },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
+        frameRate: { ideal: 30 }
+      },
+      audio: false
+    });
+
+    els.video.srcObject = stream;
+    await els.video.play();
+    await configureTrack();
+    return stream;
+  }
+
+  function explainCameraError(err) {
+    const name = err?.name || '';
+    if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+      return 'Camera permission was denied or blocked. Allow Camera for this browser/site, then press Start Scan again.';
+    }
+    if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+      return 'No usable camera was found.';
+    }
+    if (name === 'NotReadableError' || name === 'TrackStartError') {
+      return 'The camera exists but could not be opened. Another app may be using it.';
+    }
+    if (name === 'SecurityError') {
+      return 'The browser blocked camera access for this page context.';
+    }
+    return err?.message || String(err);
+  }
+
+  async function startCamera() {
+    if (!stream) {
+      try {
+        setStatus('Requesting camera permission…');
+        els.compatNotice.innerHTML = '<strong>Camera request:</strong> approve the rear camera permission when your browser asks.';
+        await requestCamera();
+        setStatus('Camera connected');
+      } catch (err) {
+        console.error(err);
+        const msg = explainCameraError(err);
+        setStatus(`Camera unavailable: ${msg}`);
+        els.compatNotice.innerHTML = `<strong>Camera did not start.</strong> ${escapeHtml(msg)}<br><small>Page: ${escapeHtml(location.href)} | Secure context: ${window.isSecureContext ? 'yes' : 'no'}</small>`;
+        return;
+      }
+    }
+
+    if (!detector && !(await initDetector())) {
+      setStatus('Camera works, but barcode detection is not supported here');
+      els.compatNotice.innerHTML = '<strong>Camera permission worked.</strong> The video preview is live, but this browser does not expose the BarcodeDetector API needed for continuous scanning. Try current Chrome on Android or run the page from a supported HTTPS/app context.';
+      return;
+    }
+
+    scanning = true;
+    els.start.textContent = 'Scanning';
+    els.start.disabled = true;
+    els.pause.disabled = false;
+    setStatus('Scanning continuously');
+    scheduleScanning();
+  }
+
+  async function configureTrack() {
+    const track = stream?.getVideoTracks?.()[0];
+    if (!track) return;
+    const caps = track.getCapabilities ? track.getCapabilities() : {};
+    els.torch.disabled = !caps.torch;
+
+    try {
+      const advanced = [];
+      if (caps.focusMode?.includes?.('continuous')) advanced.push({ focusMode: 'continuous' });
+      if (advanced.length) await track.applyConstraints({ advanced });
+    } catch (_) {}
+  }
+
+  function pauseScanning() {
+    scanning = false;
+    clearInterval(scanTimer);
+    scanTimer = null;
+    els.start.textContent = 'Resume Scan';
+    els.start.disabled = false;
+    els.pause.disabled = true;
+    setStatus('Paused');
+  }
+
+  async function toggleTorch() {
+    const track = stream?.getVideoTracks?.()[0];
+    if (!track) return;
+    try {
+      torchOn = !torchOn;
+      await track.applyConstraints({ advanced: [{ torch: torchOn }] });
+      els.torch.textContent = torchOn ? 'Flashlight On' : 'Flashlight';
+    } catch (err) {
+      torchOn = false;
+      setStatus('Flashlight not supported by this camera');
+    }
+  }
+
+  function clearCurrent(confirmFirst = true) {
+    if (confirmFirst && current.size && !confirm('Clear every barcode in the current row?')) return;
+    current.clear();
+    firstSeenStack.length = 0;
+    totalReads = 0;
+    lastFrameDetections = [];
+    drawOverlay([]);
+    renderList();
+    setStatus('Current row cleared');
+  }
+
+  function undoLast() {
+    while (firstSeenStack.length) {
+      const raw = firstSeenStack.pop();
+      if (current.delete(raw)) {
+        renderList();
+        setStatus(`Removed ${raw}`);
+        return;
+      }
+    }
+  }
+
+  function rowKey(loc) {
+    return `${loc.aisle}::${loc.bay}::${loc.row}`;
+  }
+
+  async function saveCurrentRow() {
+    if (!db) return false;
+    const loc = currentLocation();
+    const ordered = getOrderedItems();
+    if (!ordered.length) {
+      setStatus('Nothing to save in this row');
+      return false;
+    }
+
+    const rowRecord = {
+      key: rowKey(loc),
+      aisle: loc.aisle,
+      bay: loc.bay,
+      row: loc.row,
+      direction: loc.direction,
+      updatedAt: new Date().toISOString(),
+      items: ordered.map((item, i) => ({
+        barcode: item.rawValue,
+        format: item.format,
+        position: i + 1
+      }))
+    };
+
+    await idbPut('rows', rowRecord);
+
+    for (const [i, item] of ordered.entries()) {
+      await idbPut('locations', {
+        id: `${item.rawValue}::${rowRecord.key}`,
+        barcode: item.rawValue,
+        aisle: loc.aisle,
+        bay: loc.bay,
+        row: loc.row,
+        position: i + 1,
+        direction: loc.direction,
+        updatedAt: rowRecord.updatedAt
+      });
+    }
+
+    await refreshSavedStats();
+    if (autoBackupEnabled && backupFileHandle) {
+      try {
+        await writeLiveBackup();
+        setStatus(`Saved ${ordered.length} barcodes + backup updated`);
+      } catch (err) {
+        console.error(err);
+        autoBackupEnabled = false;
+        els.autoBackup.textContent = 'Enable Auto Backup';
+        els.backupStatus.innerHTML = `<strong>Auto backup stopped:</strong> ${escapeHtml(err.message || String(err))}. Your browser database is still saved.`;
+        setStatus(`Saved ${ordered.length} barcodes`);
+      }
+    } else {
+      setStatus(`Saved ${ordered.length} barcodes`);
+    }
+    return true;
+  }
+
+  async function saveAndNextRow() {
+    const hadData = current.size > 0;
+    if (hadData && !(await saveCurrentRow())) return;
+    els.row.value = String((Number(els.row.value) || 1) + 1);
+    clearCurrent(false);
+    updateHud();
+    setStatus(`Ready for Row ${els.row.value}`);
+  }
+
+  async function saveAndNextBay() {
+    const hadData = current.size > 0;
+    if (hadData && !(await saveCurrentRow())) return;
+    els.bay.value = String((Number(els.bay.value) || 1) + 1);
+    els.row.value = '1';
+    clearCurrent(false);
+    updateHud();
+    setStatus(`Ready for Bay ${els.bay.value}, Row 1`);
+  }
+
+  function openDb() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open('aisle_mapper_db', 1);
+      req.onupgradeneeded = () => {
+        const database = req.result;
+        if (!database.objectStoreNames.contains('rows')) {
+          database.createObjectStore('rows', { keyPath: 'key' });
+        }
+        if (!database.objectStoreNames.contains('locations')) {
+          const store = database.createObjectStore('locations', { keyPath: 'id' });
+          store.createIndex('barcode', 'barcode', { unique: false });
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  function idbPut(storeName, value) {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(storeName, 'readwrite');
+      tx.objectStore(storeName).put(value);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  function idbGetAll(storeName) {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(storeName, 'readonly');
+      const req = tx.objectStore(storeName).getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  function idbGetLocations(barcode) {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('locations', 'readonly');
+      const index = tx.objectStore('locations').index('barcode');
+      const req = index.getAll(String(barcode));
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function refreshSavedStats() {
+    if (!db) return;
+    const [rows, locations] = await Promise.all([idbGetAll('rows'), idbGetAll('locations')]);
+    els.statSavedRows.textContent = rows.length;
+    els.statSavedItems.textContent = locations.length;
+  }
+
+  async function lookupBarcode() {
+    const barcode = els.lookup.value.trim();
+    if (!barcode || !db) {
+      els.lookupResult.textContent = 'Saved locations will appear here.';
+      return;
+    }
+
+    const found = await idbGetLocations(barcode);
+    if (!found.length) {
+      els.lookupResult.textContent = 'No saved location found.';
+      return;
+    }
+
+    found.sort((a, b) => a.aisle.localeCompare(b.aisle) || a.bay - b.bay || a.row - b.row || a.position - b.position);
+    els.lookupResult.innerHTML = found.map(x =>
+      `<div style="margin-bottom:7px"><strong>${escapeHtml(x.aisle)}</strong> · Bay ${x.bay} · Row ${x.row} · Position ${x.position}</div>`
+    ).join('');
+  }
+
+  function downloadBlob(name, text, type) {
+    const blob = new Blob([text], { type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  async function buildBackupPayload() {
+    const [rows, locations] = await Promise.all([idbGetAll('rows'), idbGetAll('locations')]);
+    return {
+      app: 'Aisle Mapper',
+      version: 2,
+      exportedAt: new Date().toISOString(),
+      rows,
+      locations
+    };
+  }
+
+  async function backupNow() {
+    const payload = await buildBackupPayload();
+    downloadBlob(`aisle-mapper-backup-${dateStamp()}.json`, JSON.stringify(payload, null, 2), 'application/json');
+    els.backupStatus.innerHTML = `<strong>Backup created.</strong> Keep that JSON file in Downloads, Drive, USB, or another folder. It survives clearing browser data.`;
+    setStatus(`Backup created: ${payload.locations.length} locations`);
+  }
+
+  async function enableAutoBackup() {
+    if (!('showSaveFilePicker' in window)) {
+      els.backupStatus.innerHTML = '<strong>Automatic file backup is not supported by this browser.</strong> Use Backup Now after mapping. That downloaded file can still restore everything later.';
+      setStatus('Use Backup Now on this browser');
+      return;
+    }
+
+    try {
+      backupFileHandle = await window.showSaveFilePicker({
+        suggestedName: 'aisle-mapper-live-backup.json',
+        types: [{
+          description: 'Aisle Mapper Backup',
+          accept: { 'application/json': ['.json'] }
+        }]
+      });
+      autoBackupEnabled = true;
+      els.autoBackup.textContent = 'Auto Backup On';
+      await writeLiveBackup();
+      els.backupStatus.innerHTML = '<strong>Auto backup is ON.</strong> Every saved row will also rewrite the backup file you selected.';
+      setStatus('Auto backup enabled');
+    } catch (err) {
+      if (err?.name !== 'AbortError') {
+        console.error(err);
+        setStatus(`Auto backup failed: ${err.message || err}`);
+      }
+    }
+  }
+
+  async function writeLiveBackup() {
+    if (!backupFileHandle) return;
+    const payload = await buildBackupPayload();
+    const writable = await backupFileHandle.createWritable();
+    await writable.write(JSON.stringify(payload, null, 2));
+    await writable.close();
+  }
+
+  async function exportTxt() {
+    const locations = await idbGetAll('locations');
+    locations.sort((a, b) => a.aisle.localeCompare(b.aisle) || a.bay - b.bay || a.row - b.row || a.position - b.position);
+    const groups = new Map();
+    for (const x of locations) {
+      const key = `${x.aisle}||${x.bay}||${x.row}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(x);
+    }
+
+    const lines = ['AISLE MAPPER EXPORT', `Created: ${new Date().toLocaleString()}`, ''];
+    for (const items of groups.values()) {
+      const first = items[0];
+      lines.push(`[${first.aisle}] Bay ${first.bay} | Row ${first.row}`);
+      for (const x of items) lines.push(`Position ${x.position} | ${x.barcode}`);
+      lines.push('');
+    }
+    downloadBlob(`aisle-mapper-${dateStamp()}.txt`, lines.join('\n'), 'text/plain');
+  }
+
+  async function exportCsv() {
+    const locations = await idbGetAll('locations');
+    locations.sort((a, b) => a.aisle.localeCompare(b.aisle) || a.bay - b.bay || a.row - b.row || a.position - b.position);
+    const lines = ['barcode,aisle,bay,row,position,direction,updatedAt'];
+    for (const x of locations) {
+      lines.push([
+        x.barcode, x.aisle, x.bay, x.row, x.position, x.direction, x.updatedAt
+      ].map(csvEscape).join(','));
+    }
+    downloadBlob(`aisle-mapper-${dateStamp()}.csv`, lines.join('\n'), 'text/csv');
+  }
+
+  async function importJson(file) {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if (!Array.isArray(data.rows) || !Array.isArray(data.locations)) {
+      throw new Error('Not an Aisle Mapper backup');
+    }
+    for (const row of data.rows) await idbPut('rows', row);
+    for (const loc of data.locations) await idbPut('locations', loc);
+    await refreshSavedStats();
+    setStatus(`Restored ${data.locations.length} locations`);
+  }
+
+  function csvEscape(v) {
+    const s = String(v ?? '');
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  }
+
+  function dateStamp() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"]/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[ch]));
+  }
+
+  els.start.addEventListener('click', startCamera);
+  els.pause.addEventListener('click', pauseScanning);
+  els.torch.addEventListener('click', toggleTorch);
+  els.undo.addEventListener('click', undoLast);
+  els.clear.addEventListener('click', () => clearCurrent(true));
+  els.save.addEventListener('click', saveCurrentRow);
+  els.nextRow.addEventListener('click', saveAndNextRow);
+  els.nextBay.addEventListener('click', saveAndNextBay);
+  els.lookup.addEventListener('input', lookupBarcode);
+  els.backupNow.addEventListener('click', backupNow);
+  els.restoreBtn.addEventListener('click', () => els.importFile.click());
+  els.autoBackup.addEventListener('click', enableAutoBackup);
+  els.exportTxt.addEventListener('click', exportTxt);
+  els.exportCsv.addEventListener('click', exportCsv);
+  els.importFile.addEventListener('change', async () => {
+    const file = els.importFile.files?.[0];
+    if (!file) return;
+    try {
+      await importJson(file);
+      els.backupStatus.innerHTML = `<strong>Restore complete.</strong> The backup has been loaded back into the browser database.`;
+    }
+    catch (err) { alert(`Restore failed: ${err.message || err}`); }
+    finally { els.importFile.value = ''; }
+  });
+
+  [els.aisle, els.bay, els.row, els.direction].forEach(el => el.addEventListener('input', () => {
+    updateHud();
+    renderList();
+  }));
+
+  window.addEventListener('resize', () => drawOverlay(lastFrameDetections));
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && scanning) pauseScanning();
+  });
+
+  window.addEventListener('beforeunload', () => {
+    try { stream?.getTracks?.().forEach(t => t.stop()); } catch (_) {}
+  });
+
+  (async function boot() {
+    try {
+      db = await openDb();
+      await refreshSavedStats();
+      await initDetector();
+      renderList();
+      updateHud();
+      setStatus('Ready');
+    } catch (err) {
+      console.error(err);
+      setStatus(`Startup error: ${err.message || err}`);
+    }
+  })();
+})();
+</script>
+</body>
+</html>
