@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#2f80ed" />
+<title>Aisle Mapper</title>
+<style>
+:root{
+  --bg:#eef5ff;--panel:#ffffff;--panel2:#f5f9ff;--panel3:#e7f0ff;
+  --text:#15365f;--muted:#5f7ea6;--line:#c7d9f2;--accent:#2f80ed;
+  --good:#1f6fe5;--warn:#7eb3ff;--bad:#ff6b6b;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+body{padding:10px 10px 88px}
+button,input,select{font:inherit}
+button{border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:12px;padding:12px;font-weight:850;cursor:pointer;min-height:46px}
+button.primary{background:var(--accent);color:#ffffff;border-color:transparent}
+button.good{background:var(--good);color:#ffffff;border-color:transparent}
+button.warn{background:var(--warn);color:#15365f;border-color:transparent}
+button.bad{background:#3a1f25;color:#ffd7dc;border-color:#6c3340}
+button:disabled{opacity:.45;cursor:not-allowed}
+input,select{width:100%;border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:11px;padding:12px;outline:none}
+input:focus,select:focus{border-color:var(--accent)}
+.app{width:min(1100px,100%);margin:0 auto;display:grid;gap:10px}
+.topbar{display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap}
+h1{font-size:clamp(1.3rem,4vw,1.9rem);margin:0}
+.status{padding:7px 10px;border:1px solid var(--line);background:var(--panel);border-radius:10px;color:var(--muted);font-size:.84rem}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:12px}
+.notice{color:var(--muted);font-size:.82rem;line-height:1.4}.notice strong{color:var(--text)}
+.hidden{display:none!important}
+
+.tabs{position:sticky;top:0;z-index:20;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:7px;background:rgba(238,245,255,.94);backdrop-filter:blur(9px);border:1px solid var(--line);border-radius:15px}
+.tab-btn{min-height:44px;padding:8px 6px;background:transparent;color:var(--muted);border-color:transparent;font-size:.87rem}
+.tab-btn.active{background:#ffffff;color:var(--accent);border-color:var(--line)}
+.tab-panel{display:none;gap:10px}.tab-panel.active{display:grid}
+.section-title{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.section-title h2{margin:0;font-size:1.05rem}
+
+.setup-form{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.setup-form .wide{grid-column:1/-1}
+label{display:grid;gap:6px;color:var(--muted);font-weight:750;font-size:.8rem}
+.side-choice{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.side-btn.selected{background:var(--accent);color:#ffffff;border-color:transparent}
+.setup-summary{margin-top:10px;background:var(--panel3);border:1px solid var(--line);border-radius:12px;padding:11px;font-weight:900}
+
+.current-bar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.current-bar .label{font-size:.74rem;color:var(--muted);font-weight:850;margin-bottom:3px}
+.current-bar .value{font-size:1rem;font-weight:950}
+
+.scanner-wrap{position:relative;overflow:hidden;border-radius:14px;background:#dbe9ff;min-height:260px;aspect-ratio:16/9}
+video,canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+canvas{pointer-events:none}
+.scan-hud{position:absolute;inset:9px 9px auto 9px;z-index:3;display:flex;justify-content:space-between;gap:8px;pointer-events:none}
+.hud-box{background:rgba(255,255,255,.9);border:1px solid rgba(47,128,237,.28);border-radius:11px;padding:7px 9px;backdrop-filter:blur(5px)}
+.hud-main{font-weight:950}.hud-sub{font-size:.77rem;color:#4f6f98;margin-top:2px}
+.camera-controls{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:9px}
+.map-actions{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.flash{animation:flash .26s ease-out}@keyframes flash{0%{box-shadow:0 0 0 0 rgba(69,212,131,.8)}100%{box-shadow:0 0 0 12px rgba(69,212,131,0)}}
+
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+.stat{border:1px solid var(--line);background:var(--panel2);border-radius:12px;padding:9px}.stat .n{font-size:1.35rem;font-weight:950}.stat .k{color:var(--muted);font-size:.75rem}
+
+.barcode-list{display:grid;gap:7px;max-height:430px;overflow:auto}
+.barcode-item{display:grid;grid-template-columns:44px 1fr auto;gap:9px;align-items:center;border:1px solid var(--line);background:var(--panel2);border-radius:12px;padding:8px}
+.pos-btn{width:40px;height:40px;padding:0;min-height:40px;border-radius:10px;background:var(--panel3);font-weight:950}
+.code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-weight:900;word-break:break-all}.meta{color:var(--muted);font-size:.75rem;margin-top:2px}
+.row-tools{display:flex;gap:5px}.tiny{min-height:34px;padding:6px 8px;font-size:.78rem;border-radius:9px}
+.inline-pos{width:40px!important;height:40px;padding:5px!important;text-align:center;font-weight:950}
+
+.find-top{display:grid;grid-template-columns:1fr auto;gap:8px}.find-top button{min-width:120px}
+.find-result{display:grid;gap:10px;margin-top:10px}
+.find-summary{background:var(--panel3);border:1px solid var(--line);border-radius:13px;padding:10px}
+.find-summary .big{font-size:1.15rem;font-weight:950}.find-summary .small{font-size:.78rem;color:var(--muted);margin-top:3px;word-break:break-all}
+.location-picker{display:grid;grid-template-columns:52px 1fr 52px;gap:8px;align-items:stretch}
+.arrow-btn{font-size:1.4rem;padding:8px}
+.location-card{border:1px solid var(--accent);background:var(--panel2);border-radius:14px;padding:12px;display:grid;gap:10px}
+.location-card-title{font-weight:950;font-size:1.05rem}
+.edit-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:7px}
+.edit-cell{display:grid;gap:4px}.edit-label{font-size:.68rem;color:var(--muted);font-weight:850;text-transform:uppercase;letter-spacing:.04em}
+.edit-value{min-height:42px;padding:8px 6px;background:var(--panel3);border:1px solid var(--line);border-radius:9px;font-weight:950;text-align:center}
+.edit-value.side{font-size:.82rem}
+.inline-edit-input{width:100%!important;min-width:0;padding:7px!important;min-height:42px;text-align:center;border-radius:9px!important;font-weight:900}
+.option-row{display:flex;gap:7px;overflow:auto;padding-bottom:2px}.option-btn{min-width:44px;min-height:40px;padding:7px}.option-btn.selected{background:var(--accent);color:#ffffff;border-color:transparent}
+
+.data-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.danger-zone{margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+
+@media(max-width:760px){
+  body{padding:8px 8px 84px}.tabs{gap:4px}.tab-btn{font-size:.8rem;padding:6px 3px}
+  .setup-form{grid-template-columns:1fr}.setup-form .wide{grid-column:auto}
+  .scanner-wrap{aspect-ratio:4/3;min-height:280px}.camera-controls{grid-template-columns:1fr 1fr}.camera-controls button:last-child{grid-column:1/-1}
+  .map-actions{grid-template-columns:1fr 1fr}.stats{grid-template-columns:1fr 1fr}
+  .barcode-item{grid-template-columns:42px 1fr}.row-tools{grid-column:1/-1;justify-content:flex-end}
+  .find-top{grid-template-columns:1fr}.find-top button{min-width:0}
+  .location-picker{grid-template-columns:46px 1fr 46px}.edit-grid{grid-template-columns:1fr 1fr}.edit-cell:first-child{grid-column:1/-1}
+  .data-grid{grid-template-columns:1fr}.current-bar{align-items:stretch}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <h1>Aisle Mapper</h1>
+    <div class="status" id="statusText">Ready</div>
+  </div>
+
+  <nav class="tabs" aria-label="Aisle Mapper modes">
+    <button class="tab-btn active" data-tab="setup" type="button">Setup</button>
+    <button class="tab-btn" data-tab="map" type="button">Map</button>
+    <button class="tab-btn" data-tab="find" type="button">Find</button>
+    <button class="tab-btn" data-tab="data" type="button">Data</button>
+  </nav>
+
+  <section class="tab-panel active" id="tab-setup">
+    <section class="panel">
+      <div class="section-title">
+        <h2>Scan setup</h2>
+        <div class="notice">Set this before mapping a row.</div>
+      </div>
+      <div class="setup-form">
+        <label class="wide">Aisle
+          <input id="aisleInput" value="A1" autocomplete="off" placeholder="Example: 5 or A5" />
+        </label>
+        <label class="wide">Aisle side
+          <input id="sideInput" type="hidden" value="left" />
+          <div class="side-choice" role="group" aria-label="Aisle side">
+            <button type="button" class="side-btn selected" data-side="left">← Left side</button>
+            <button type="button" class="side-btn" data-side="right">Right side →</button>
+          </div>
+        </label>
+        <label>Bay
+          <input id="bayInput" type="number" value="1" min="1" inputmode="numeric" />
+        </label>
+        <label>Row
+          <input id="rowInput" type="number" value="1" min="1" inputmode="numeric" />
+        </label>
+        <label class="wide">Scan direction
+          <select id="directionInput">
+            <option value="rtl">Right to Left</option>
+            <option value="ltr">Left to Right</option>
+          </select>
+        </label>
+      </div>
+      <div class="setup-summary" id="setupSummary">A1 · LEFT · Bay 1 · Row 1 · Right → Left</div>
+      <button class="primary" id="setupToMapBtn" style="margin-top:10px;width:100%">Save Setup + Go to Map</button>
+    </section>
+  </section>
+
+  <section class="tab-panel" id="tab-map">
+    <section class="panel current-bar">
+      <div><div class="label">MAPPING LOCATION</div><div class="value" id="currentSetupText">A1 · LEFT · Bay 1 · Row 1</div></div>
+      <button id="mapSetupBtn" type="button">Edit Setup</button>
+    </section>
+
+    <div id="mapScannerMount"></div>
+
+    <section class="panel">
+      <div class="map-actions">
+        <button class="good" id="nextRowBtn">Save + Next Row</button>
+        <button class="warn" id="nextBayBtn">Save + Next Bay</button>
+        <button id="saveBtn">Save Row</button>
+        <button id="undoBtn">Undo Last</button>
+        <button class="bad" id="clearBtn">Clear Current Row</button>
+      </div>
+    </section>
+
+    <section class="stats">
+      <div class="stat"><div class="n" id="statUnique">0</div><div class="k">Items this row</div></div>
+      <div class="stat"><div class="n" id="statReads">0</div><div class="k">Total detections</div></div>
+      <div class="stat"><div class="n" id="statSavedRows">0</div><div class="k">Saved rows</div></div>
+      <div class="stat"><div class="n" id="statSavedItems">0</div><div class="k">Saved locations</div></div>
+    </section>
+
+    <section class="panel">
+      <div class="section-title">
+        <h2>Current row order</h2>
+        <div class="notice">Tap the position number to change it. Use ↑ ↓ to fix order fast.</div>
+      </div>
+      <div class="barcode-list" id="barcodeList"></div>
+    </section>
+  </section>
+
+  <section class="tab-panel" id="tab-find">
+    <section class="panel">
+      <div class="section-title">
+        <h2>Find an item</h2>
+        <div class="notice">Scan it or type any 4 consecutive digits from the ending number. A check digit after them is OK.</div>
+      </div>
+      <div class="find-top">
+        <input id="lookupInput" maxlength="4" placeholder="4 visible ending digits" autocomplete="off" inputmode="numeric" aria-label="Four visible ending barcode digits" />
+        <button id="clearFindBtn" type="button">Clear Result</button>
+      </div>
+    </section>
+
+    <div id="findScannerMount"></div>
+
+    <section class="panel">
+      <div id="lookupResult" class="find-result notice">Scan an item or enter its last 4 digits.</div>
+    </section>
+  </section>
+
+  <section class="tab-panel" id="tab-data">
+    <section class="stats">
+      <div class="stat"><div class="n" id="dataSavedRows">0</div><div class="k">Saved rows</div></div>
+      <div class="stat"><div class="n" id="dataSavedItems">0</div><div class="k">Saved locations</div></div>
+      <div class="stat"><div class="n" id="dataAisles">0</div><div class="k">Aisles mapped</div></div>
+      <div class="stat"><div class="n" id="dataSides">0</div><div class="k">Aisle sides mapped</div></div>
+    </section>
+    <section class="panel">
+      <div class="section-title"><h2>Backup and export</h2></div>
+      <div class="data-grid">
+        <button class="good" id="backupNowBtn">Backup Now</button>
+        <button class="primary" id="restoreBtn">Restore Backup</button>
+        <button id="autoBackupBtn">Enable Auto Backup</button>
+        <button id="exportTxtBtn">Export TXT</button>
+        <button id="exportCsvBtn">Export CSV</button>
+      </div>
+      <input id="importFile" type="file" accept="application/json,.json" hidden />
+      <p class="notice" id="backupStatus"><strong>Recovery:</strong> the browser database is the fast working copy. A JSON backup survives clearing browser data.</p>
+      <div class="danger-zone">
+        <button class="bad" id="clearAllDataBtn" style="width:100%">Clear All Data</button>
+      </div>
+    </section>
+  </section>
+
+  <section class="panel" id="scannerPanel">
+    <div class="scanner-wrap" id="scannerWrap">
+      <video id="video" playsinline muted autoplay></video>
+      <canvas id="overlay"></canvas>
+      <div class="scan-hud">
+        <div class="hud-box">
+          <div class="hud-main" id="hudLocation">A1 · LEFT · Bay 1 · Row 1</div>
+          <div class="hud-sub" id="hudDirection">Right → Left</div>
+        </div>
+        <div class="hud-box">
+          <div class="hud-main" id="hudCount">0 items</div>
+          <div class="hud-sub" id="hudMode">MAP</div>
+        </div>
+      </div>
+    </div>
+    <div class="camera-controls">
+      <button class="primary" id="startBtn">Start Camera</button>
+      <button id="pauseBtn" disabled>Pause</button>
+      <button id="torchBtn" disabled>Flashlight</button>
+    </div>
+    <div class="notice" id="compatNotice" style="margin-top:8px">Uses the browser BarcodeDetector API. Host this page over HTTPS for camera access.</div>
+  </section>
+</div>
+
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const els = {
+  status:$('statusText'), aisle:$('aisleInput'), side:$('sideInput'), bay:$('bayInput'), row:$('rowInput'), direction:$('directionInput'),
+  setupSummary:$('setupSummary'), setupToMap:$('setupToMapBtn'), mapSetup:$('mapSetupBtn'), currentSetupText:$('currentSetupText'),
+  scannerPanel:$('scannerPanel'), mapScannerMount:$('mapScannerMount'), findScannerMount:$('findScannerMount'),
+  video:$('video'), overlay:$('overlay'), scannerWrap:$('scannerWrap'), hudLocation:$('hudLocation'), hudDirection:$('hudDirection'), hudCount:$('hudCount'), hudMode:$('hudMode'),
+  start:$('startBtn'), pause:$('pauseBtn'), torch:$('torchBtn'), compat:$('compatNotice'),
+  nextRow:$('nextRowBtn'), nextBay:$('nextBayBtn'), save:$('saveBtn'), undo:$('undoBtn'), clear:$('clearBtn'), barcodeList:$('barcodeList'),
+  statUnique:$('statUnique'), statReads:$('statReads'), statSavedRows:$('statSavedRows'), statSavedItems:$('statSavedItems'),
+  lookup:$('lookupInput'), lookupResult:$('lookupResult'), clearFind:$('clearFindBtn'),
+  backupNow:$('backupNowBtn'), restore:$('restoreBtn'), autoBackup:$('autoBackupBtn'), exportTxt:$('exportTxtBtn'), exportCsv:$('exportCsvBtn'), clearAllData:$('clearAllDataBtn'), importFile:$('importFile'), backupStatus:$('backupStatus'),
+  dataSavedRows:$('dataSavedRows'), dataSavedItems:$('dataSavedItems'), dataAisles:$('dataAisles'), dataSides:$('dataSides')
+};
+
+let db=null, detector=null, stream=null, scanning=false, detectorBusy=false, torchOn=false, scanTimer=null, cameraPaused=false;
+let activeTab='setup', totalReads=0, lastFrameDetections=[], currentMapLocation=null, manualSequence=null;
+let backupFileHandle=null, autoBackupEnabled=false, lookupRequestId=0, findSelectedIndex=0, findResults=[], findQuery='', findScannedRaw='';
+const current=new Map();
+const firstSeenStack=[];
+const SCAN_INTERVAL_MS=95, SAME_VIEW_WINDOW_MS=700, OCCURRENCE_MATCH_MS=900, OCCURRENCE_X_DISTANCE=.24;
+
+function setStatus(t){els.status.textContent=t}
+function sideLabel(s){return s==='right'?'RIGHT':s==='left'?'LEFT':'SIDE ?'}
+function currentLocation(){return{aisle:(els.aisle.value||'A1').trim(),side:els.side.value==='right'?'right':'left',bay:Math.max(1,Number(els.bay.value)||1),row:Math.max(1,Number(els.row.value)||1),direction:els.direction.value==='ltr'?'ltr':'rtl'}}
+function mappingLocation(){return currentMapLocation||currentLocation()}
+function dirLabel(d){return d==='ltr'?'Left → Right':'Right → Left'}
+function locationText(x){return`${x.aisle} · ${sideLabel(x.side)} · Bay ${x.bay} · Row ${x.row}`}
+function rowKey(x){return`${x.aisle}::${x.side||'unspecified'}::${x.bay}::${x.row}`}
+function newId(){return globalThis.crypto?.randomUUID?.()||`loc-${Date.now()}-${Math.random().toString(36).slice(2)}`}
+
+function syncSideButtons(){document.querySelectorAll('.side-btn').forEach(b=>b.classList.toggle('selected',b.dataset.side===els.side.value))}
+function saveSetupPreference(){try{localStorage.setItem('aisleMapperSetup',JSON.stringify(currentLocation()))}catch(_){}}
+function loadSetupPreference(){try{const s=JSON.parse(localStorage.getItem('aisleMapperSetup')||'null');if(!s)return;if(s.aisle)els.aisle.value=s.aisle;if(['left','right'].includes(s.side))els.side.value=s.side;if(s.bay)els.bay.value=s.bay;if(s.row)els.row.value=s.row;if(['ltr','rtl'].includes(s.direction))els.direction.value=s.direction}catch(_){}}
+function updateSetupSummary(){const l=currentLocation();els.setupSummary.textContent=`${locationText(l)} · ${dirLabel(l.direction)}`;if(!currentMapLocation)els.currentSetupText.textContent=locationText(l);updateHud()}
+
+function syncCameraButtons(){
+  if(scanning){els.start.disabled=true;els.start.textContent='Scanning…';els.pause.disabled=false}
+  else{els.start.disabled=false;els.pause.disabled=true;els.start.textContent=activeTab==='find'?(cameraPaused?'Scan Another':'Start Find Scan'):(cameraPaused?'Resume Map Scan':'Start Camera')}
+}
+function switchTab(tab){
+  activeTab=tab;
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.toggle('active',p.id===`tab-${tab}`));
+  if(tab==='map'){
+    els.mapScannerMount.appendChild(els.scannerPanel);findModeOff();updateHud();
+  }else if(tab==='find'){
+    els.findScannerMount.appendChild(els.scannerPanel);updateHud();
+  }else{
+    if(scanning)pauseScanning();
+  }
+  syncCameraButtons();
+  window.scrollTo({top:0,behavior:'auto'});
+}
+function findModeOff(){/* mode is derived from activeTab */}
+
+document.querySelectorAll('.tab-btn').forEach(btn=>btn.addEventListener('click',()=>switchTab(btn.dataset.tab)));
+document.querySelectorAll('.side-btn').forEach(btn=>btn.addEventListener('click',()=>{els.side.value=btn.dataset.side==='right'?'right':'left';syncSideButtons();saveSetupPreference();updateSetupSummary()}));
+[els.aisle,els.bay,els.row,els.direction].forEach(el=>el.addEventListener('input',()=>{saveSetupPreference();updateSetupSummary()}));
+els.setupToMap.addEventListener('click',()=>{saveSetupPreference();switchTab('map');setStatus('Setup saved. Ready to map.')});
+els.mapSetup.addEventListener('click',()=>switchTab('setup'));
+
+function updateHud(){
+  if(activeTab==='find'){
+    els.hudLocation.textContent='FIND MODE';els.hudDirection.textContent='Scan item barcode';els.hudCount.textContent=findResults.length?`${findResults.length} options`:'last 4';els.hudMode.textContent='FIND';
+  }else{
+    const l=mappingLocation();els.hudLocation.textContent=locationText(l);els.hudDirection.textContent=dirLabel(l.direction);els.hudCount.textContent=`${current.size} items`;els.hudMode.textContent='MAP';
+  }
+  els.statUnique.textContent=current.size;els.statReads.textContent=totalReads;els.currentSetupText.textContent=locationText(mappingLocation());
+}
+
+function average(a){return a.length?a.reduce((x,y)=>x+y,0)/a.length:0}
+function autoOrderedItems(){
+  const items=[...current.values()].sort((a,b)=>a.firstSeen-b.firstSeen);if(items.length<2)return items;
+  const groups=[];let g=[],start=null;
+  for(const item of items){if(!g.length){g=[item];start=item.firstSeen}else if(item.firstSeen-start<=SAME_VIEW_WINDOW_MS){g.push(item)}else{groups.push(g);g=[item];start=item.firstSeen}}if(g.length)groups.push(g);
+  const dir=mappingLocation().direction,out=[];
+  for(const group of groups){group.sort((a,b)=>dir==='rtl'?average(b.xSamples)-average(a.xSamples):average(a.xSamples)-average(b.xSamples));out.push(...group)}return out;
+}
+function getOrderedItems(){
+  const auto=autoOrderedItems();if(!manualSequence)return auto;
+  const map=new Map(auto.map(x=>[x.id,x]));const out=[];
+  for(const id of manualSequence){if(map.has(id)){out.push(map.get(id));map.delete(id)}}
+  for(const item of auto){if(map.has(item.id)){out.push(item);map.delete(item.id)}}return out;
+}
+function lockManualOrder(){manualSequence=getOrderedItems().map(x=>x.id)}
+function moveCurrentItem(id,delta){lockManualOrder();const i=manualSequence.indexOf(id);if(i<0)return;const j=Math.max(0,Math.min(manualSequence.length-1,i+delta));if(i===j)return;[manualSequence[i],manualSequence[j]]=[manualSequence[j],manualSequence[i]];renderList()}
+function moveCurrentToPosition(id,target){lockManualOrder();let i=manualSequence.indexOf(id);if(i<0)return;let j=Math.max(0,Math.min(manualSequence.length-1,(Number(target)||1)-1));manualSequence.splice(i,1);manualSequence.splice(j,0,id);renderList()}
+function makePosInline(button,id,currentPos){
+  const input=document.createElement('input');input.type='number';input.min='1';input.max=String(current.size);input.value=String(currentPos);input.className='inline-pos';button.replaceWith(input);input.focus();input.select();
+  const finish=()=>moveCurrentToPosition(id,input.value);input.addEventListener('change',finish,{once:true});input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();finish()}if(e.key==='Escape')renderList()});
+}
+function renderList(){
+  const ordered=getOrderedItems();els.barcodeList.innerHTML='';
+  if(!ordered.length){els.barcodeList.innerHTML='<div class="notice">Nothing scanned in this row yet.</div>';updateHud();return}
+  ordered.forEach((item,index)=>{
+    const div=document.createElement('div');div.className='barcode-item';
+    div.innerHTML=`<button class="pos-btn" type="button" title="Tap to change position">${index+1}</button><div><div class="code"></div><div class="meta"></div></div><div class="row-tools"><button class="tiny" data-act="up" type="button">↑</button><button class="tiny" data-act="down" type="button">↓</button><button class="tiny bad" data-act="remove" type="button">Remove</button></div>`;
+    div.querySelector('.code').textContent=item.rawValue;div.querySelector('.meta').textContent=`${item.format||'barcode'} · seen ${item.seenCount}×`;
+    div.querySelector('.pos-btn').addEventListener('click',e=>makePosInline(e.currentTarget,item.id,index+1));
+    div.querySelector('[data-act="up"]').addEventListener('click',()=>moveCurrentItem(item.id,-1));
+    div.querySelector('[data-act="down"]').addEventListener('click',()=>moveCurrentItem(item.id,1));
+    div.querySelector('[data-act="remove"]').addEventListener('click',()=>{current.delete(item.id);const i=firstSeenStack.lastIndexOf(item.id);if(i>=0)firstSeenStack.splice(i,1);if(manualSequence)manualSequence=manualSequence.filter(x=>x!==item.id);renderList()});
+    els.barcodeList.appendChild(div);
+  });updateHud();
+}
+
+function addDetection(code,videoWidth,usedThisFrame){
+  if(!code?.rawValue)return false;const raw=String(code.rawValue).trim();if(!raw)return false;
+  const now=performance.now(),box=code.boundingBox||{x:0,width:1},cx=box.x+box.width/2,nx=videoWidth>0?cx/videoWidth:.5;totalReads++;
+  const candidates=[...current.values()].filter(x=>x.rawValue===raw&&!usedThisFrame.has(x.id)&&now-x.lastSeen<=OCCURRENCE_MATCH_MS).sort((a,b)=>Math.abs(a.lastX-nx)-Math.abs(b.lastX-nx));
+  const match=candidates.find(x=>Math.abs(x.lastX-nx)<=OCCURRENCE_X_DISTANCE);
+  if(match){match.lastSeen=now;match.lastX=nx;match.seenCount++;match.xSamples.push(nx);if(match.xSamples.length>14)match.xSamples.shift();usedThisFrame.add(match.id);return false}
+  const id=newId();current.set(id,{id,rawValue:raw,format:code.format||'',firstSeen:now,lastSeen:now,lastX:nx,seenCount:1,xSamples:[nx]});firstSeenStack.push(id);usedThisFrame.add(id);flashScanner();return true;
+}
+function flashScanner(){els.scannerWrap.classList.remove('flash');void els.scannerWrap.offsetWidth;els.scannerWrap.classList.add('flash')}
+
+function resizeCanvas(){const r=els.video.getBoundingClientRect(),d=window.devicePixelRatio||1;els.overlay.width=Math.max(1,Math.round(r.width*d));els.overlay.height=Math.max(1,Math.round(r.height*d))}
+function drawOverlay(codes){
+  resizeCanvas();const c=els.overlay,ctx=c.getContext('2d'),d=window.devicePixelRatio||1;ctx.clearRect(0,0,c.width,c.height);const vw=els.video.videoWidth||1,vh=els.video.videoHeight||1,cw=c.width/d,ch=c.height/d,va=vw/vh,ba=cw/ch;let dw,dh,ox,oy;
+  if(va>ba){dh=ch;dw=dh*va;ox=(cw-dw)/2;oy=0}else{dw=cw;dh=dw/va;ox=0;oy=(ch-dh)/2}
+  ctx.save();ctx.scale(d,d);ctx.lineWidth=3;ctx.font='700 12px system-ui';
+  for(const code of codes){const b=code.boundingBox;if(!b)continue;const x=ox+b.x/vw*dw,y=oy+b.y/vh*dh,w=b.width/vw*dw,h=b.height/vh*dh;ctx.strokeStyle='#45d483';ctx.fillStyle='rgba(69,212,131,.14)';ctx.fillRect(x,y,w,h);ctx.strokeRect(x,y,w,h);const label=String(code.rawValue||'').slice(0,18),tw=ctx.measureText(label).width+10;ctx.fillStyle='rgba(0,0,0,.8)';ctx.fillRect(x,Math.max(0,y-22),tw,20);ctx.fillStyle='#fff';ctx.fillText(label,x+5,Math.max(14,y-7))}ctx.restore();
+}
+const cropCanvas=document.createElement('canvas'),cropCtx=cropCanvas.getContext('2d',{willReadFrequently:true});
+function remapCrop(code,y){const b=code.boundingBox;return{rawValue:code.rawValue,format:code.format,boundingBox:b?{x:b.x,y:b.y+y,width:b.width,height:b.height,top:b.top+y,right:b.right,bottom:b.bottom+y,left:b.left}:null}}
+async function detectShelfStrip(){const vw=els.video.videoWidth,vh=els.video.videoHeight;if(!vw||!vh)return[];const h=Math.max(1,Math.round(vh*.50)),y=Math.max(0,Math.round((vh-h)/2));cropCanvas.width=vw;cropCanvas.height=h;cropCtx.drawImage(els.video,0,y,vw,h,0,0,vw,h);const f=await detector.detect(cropCanvas);return f.map(x=>remapCrop(x,y))}
+
+async function scanOnce(){
+  if(!scanning||detectorBusy||!detector||els.video.readyState<2)return;detectorBusy=true;
+  try{
+    let codes=await detector.detect(els.video);if(!codes.length)codes=await detectShelfStrip();lastFrameDetections=codes;drawOverlay(codes);
+    if(activeTab==='find')await handleFindDetections(codes);else if(activeTab==='map'){
+      const used=new Set();let changed=false;for(const code of codes){if(addDetection(code,els.video.videoWidth,used))changed=true}if(changed){if(!currentMapLocation)currentMapLocation={...currentLocation()};renderList()}else updateHud();
+    }
+  }catch(err){console.error(err);setStatus(`Scan error: ${err.message||err}`)}finally{detectorBusy=false}
+}
+function scheduleScanning(){clearInterval(scanTimer);scanTimer=setInterval(scanOnce,SCAN_INTERVAL_MS)}
+async function initDetector(){
+  if(!('BarcodeDetector'in window)){detector=null;els.compat.innerHTML='<strong>BarcodeDetector is not available in this browser.</strong> Use current Chrome on Android.';return false}
+  let supported=[];try{supported=await BarcodeDetector.getSupportedFormats()}catch(_){ }
+  try{detector=supported.length?new BarcodeDetector({formats:supported}):new BarcodeDetector();els.compat.textContent=supported.length?`Barcode support ready: ${supported.length} formats.`:'Barcode support ready.';return true}catch(err){detector=null;els.compat.textContent=`Barcode detector failed: ${err.message||err}`;return false}
+}
+async function requestCamera(){
+  if(!navigator.mediaDevices?.getUserMedia)throw new Error(location.protocol==='file:'?'Camera access is blocked from local file pages. Host this HTML over HTTPS.':'This browser does not expose camera access here.');
+  return navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:3840},height:{ideal:2160}},audio:false});
+}
+function explainCameraError(err){const n=err?.name||'';if(n==='NotAllowedError'||n==='PermissionDeniedError')return location.protocol==='file:'?'Camera blocked because this is a local file. Open the HTTPS hosted version.':'Camera permission was denied. Allow Camera permission for this site in Chrome.';if(n==='NotFoundError')return'No usable camera was found.';if(n==='NotReadableError')return'Camera is busy in another app.';return err?.message||String(err)}
+async function startCamera(){
+  try{
+    if(activeTab!=='map'&&activeTab!=='find'){switchTab('map')}
+    if(!stream){setStatus('Requesting camera…');stream=await requestCamera();els.video.srcObject=stream;await els.video.play();await configureTrack()}
+    if(!detector&&!(await initDetector())){setStatus('Camera works, but barcode detection is unavailable');return}
+    cameraPaused=false;scanning=true;scheduleScanning();syncCameraButtons();updateHud();setStatus(activeTab==='find'?'Find scan active':'Mapping scan active');
+  }catch(err){console.error(err);const msg=explainCameraError(err);setStatus(msg);els.compat.innerHTML=`<strong>Camera:</strong> ${escapeHtml(msg)}`;alert(msg)}
+}
+async function configureTrack(){const track=stream?.getVideoTracks?.()[0];if(!track)return;const caps=track.getCapabilities?track.getCapabilities():{};els.torch.disabled=!caps.torch;try{const adv=[];if(caps.focusMode?.includes?.('continuous'))adv.push({focusMode:'continuous'});if(adv.length)await track.applyConstraints({advanced:adv})}catch(_){}}
+function stopCameraHardware(){
+  const hadStream=!!stream;
+  try{stream?.getTracks?.().forEach(t=>t.stop())}catch(_){}
+  try{els.video.pause()}catch(_){}
+  els.video.srcObject=null;
+  stream=null;
+  torchOn=false;
+  els.torch.disabled=true;
+  els.torch.textContent='Flashlight';
+  return hadStream;
+}
+function pauseScanning(){
+  const wasActive=scanning||!!stream;
+  scanning=false;
+  clearInterval(scanTimer);scanTimer=null;
+  stopCameraHardware();
+  if(wasActive)cameraPaused=true;
+  lastFrameDetections=[];drawOverlay([]);
+  syncCameraButtons();
+  if(activeTab==='find')els.start.textContent='Scan Another';
+  setStatus(activeTab==='find'?'Find scan paused · camera off':'Mapping paused · camera off');
+}
+async function toggleTorch(){const track=stream?.getVideoTracks?.()[0];if(!track)return;try{torchOn=!torchOn;await track.applyConstraints({advanced:[{torch:torchOn}]});els.torch.textContent=torchOn?'Flashlight On':'Flashlight'}catch(_){torchOn=false;setStatus('Flashlight not supported by this camera')}}
+els.start.addEventListener('click',startCamera);els.pause.addEventListener('click',pauseScanning);els.torch.addEventListener('click',toggleTorch);
+
+function clearCurrent(confirmFirst=true){if(confirmFirst&&current.size&&!confirm('Clear every barcode in the current row?'))return;current.clear();firstSeenStack.length=0;manualSequence=null;currentMapLocation=null;totalReads=0;lastFrameDetections=[];drawOverlay([]);renderList();setStatus('Current row cleared')}
+function undoLast(){while(firstSeenStack.length){const id=firstSeenStack.pop();if(current.delete(id)){if(manualSequence)manualSequence=manualSequence.filter(x=>x!==id);renderList();setStatus('Removed last item');return}}}
+els.clear.addEventListener('click',()=>clearCurrent(true));els.undo.addEventListener('click',undoLast);
+
+function openDb(){return new Promise((resolve,reject)=>{const req=indexedDB.open('aisle_mapper_db',1);req.onupgradeneeded=()=>{const d=req.result;if(!d.objectStoreNames.contains('rows'))d.createObjectStore('rows',{keyPath:'key'});if(!d.objectStoreNames.contains('locations')){const s=d.createObjectStore('locations',{keyPath:'id'});s.createIndex('barcode','barcode',{unique:false})}};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)})}
+function idbPut(store,value){return new Promise((resolve,reject)=>{const tx=db.transaction(store,'readwrite');tx.objectStore(store).put(value);tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error)})}
+function idbDelete(store,key){return new Promise((resolve,reject)=>{const tx=db.transaction(store,'readwrite');tx.objectStore(store).delete(key);tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error)})}
+function idbGetAll(store){return new Promise((resolve,reject)=>{const tx=db.transaction(store,'readonly'),r=tx.objectStore(store).getAll();r.onsuccess=()=>resolve(r.result||[]);r.onerror=()=>reject(r.error)})}
+function idbGetLocations(barcode){return new Promise((resolve,reject)=>{const tx=db.transaction('locations','readonly'),r=tx.objectStore('locations').index('barcode').getAll(String(barcode));r.onsuccess=()=>resolve(r.result||[]);r.onerror=()=>reject(r.error)})}
+async function deleteLocationsForRow(loc){const all=await idbGetAll('locations');const matches=all.filter(x=>x.aisle===loc.aisle&&(x.side||'unspecified')===(loc.side||'unspecified')&&Number(x.bay)===Number(loc.bay)&&Number(x.row)===Number(loc.row));for(const x of matches)await idbDelete('locations',x.id)}
+async function rebuildRowsFromLocations(){
+  const locs=await idbGetAll('locations'),groups=new Map();for(const x of locs){const k=rowKey(x);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(x)}
+  await new Promise((resolve,reject)=>{const tx=db.transaction('rows','readwrite');tx.objectStore('rows').clear();tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});
+  for(const [key,items] of groups){items.sort((a,b)=>Number(a.position)-Number(b.position));const f=items[0];await idbPut('rows',{key,aisle:f.aisle,side:f.side,bay:Number(f.bay),row:Number(f.row),direction:f.direction||'rtl',updatedAt:new Date().toISOString(),items:items.map(x=>({barcode:x.barcode,format:x.format||'',position:Number(x.position)}))})}
+}
+async function saveCurrentRow(){
+  if(!current.size){setStatus('Nothing to save in this row');return false}const loc={...mappingLocation()},ordered=getOrderedItems(),now=new Date().toISOString();
+  await deleteLocationsForRow(loc);
+  const rowRecord={key:rowKey(loc),aisle:loc.aisle,side:loc.side,bay:loc.bay,row:loc.row,direction:loc.direction,updatedAt:now,items:ordered.map((x,i)=>({barcode:x.rawValue,format:x.format,position:i+1}))};await idbPut('rows',rowRecord);
+  for(const [i,item] of ordered.entries())await idbPut('locations',{id:newId(),barcode:item.rawValue,format:item.format||'',aisle:loc.aisle,side:loc.side,bay:loc.bay,row:loc.row,position:i+1,direction:loc.direction,updatedAt:now});
+  await refreshSavedStats();saveSetupPreference();if(autoBackupEnabled&&backupFileHandle){try{await writeLiveBackup()}catch(e){autoBackupEnabled=false;els.autoBackup.textContent='Enable Auto Backup'}}setStatus(`Saved ${ordered.length} locations`);return true;
+}
+async function saveAndNextRow(){const loc={...mappingLocation()};if(current.size&&!(await saveCurrentRow()))return;els.aisle.value=loc.aisle;els.side.value=loc.side;els.bay.value=loc.bay;els.row.value=loc.row+1;els.direction.value=loc.direction;clearCurrent(false);syncSideButtons();saveSetupPreference();updateSetupSummary();setStatus(`Ready for Row ${els.row.value}`)}
+async function saveAndNextBay(){const loc={...mappingLocation()};if(current.size&&!(await saveCurrentRow()))return;els.aisle.value=loc.aisle;els.side.value=loc.side;els.bay.value=loc.bay+1;els.row.value=1;els.direction.value=loc.direction;clearCurrent(false);syncSideButtons();saveSetupPreference();updateSetupSummary();setStatus(`Ready for Bay ${els.bay.value}, Row 1`)}
+els.save.addEventListener('click',saveCurrentRow);els.nextRow.addEventListener('click',saveAndNextRow);els.nextBay.addEventListener('click',saveAndNextBay);
+
+function digitsOnly(v){return String(v??'').replace(/\D/g,'')}
+function last4(v){const d=digitsOnly(v);return d.length>=4?d.slice(-4):d}
+function visible4MatchInfo(barcode,q){
+  const d=digitsOnly(barcode),needle=digitsOnly(q);if(needle.length!==4||d.length<4)return null;
+  let best=null,start=0;
+  while(start<=d.length-4){
+    const i=d.indexOf(needle,start);if(i<0)break;
+    const trailing=d.length-(i+4);
+    // Prefer a 4-digit group at the very end or followed by only a small UPC/check-digit tail.
+    // Still allow a later-in-the-code match so shelf labels with prefixes/zeros remain findable.
+    const tier=trailing<=2?0:(i>=Math.floor(d.length/2)?1:2);
+    const score=tier*100+Math.max(0,trailing);
+    if(!best||score<best.score)best={index:i,trailing,tier,score};
+    start=i+1;
+  }
+  return best;
+}
+async function idbFindByVisible4(q){
+  const all=await idbGetAll('locations'),matches=[];
+  for(const x of all){const info=visible4MatchInfo(x.barcode,q);if(info)matches.push({x,info})}
+  matches.sort((a,b)=>a.info.score-b.info.score);
+  return matches.map(m=>m.x);
+}
+async function idbFindByScannedBarcode(raw){
+  const exact=await idbGetLocations(raw);if(exact.length)return exact;
+  const d=digitsOnly(raw),queries=[];
+  // Try every 4-digit window in the trailing part of the scanned code. This catches a visible
+  // item number even when BarcodeDetector includes a final check digit the shelf label hides.
+  const start=Math.max(0,d.length-7);
+  for(let i=start;i<=d.length-4;i++){const q=d.slice(i,i+4);if(q.length===4&&!queries.includes(q))queries.push(q)}
+  const all=[],seen=new Set();
+  for(const q of queries){for(const x of await idbFindByVisible4(q)){const k=x.id||`${x.barcode}|${x.aisle}|${x.side}|${x.bay}|${x.row}|${x.position}`;if(!seen.has(k)){seen.add(k);all.push(x)}}}
+  return all;
+}
+function sortLocations(arr){return arr.sort((a,b)=>String(a.aisle).localeCompare(String(b.aisle),undefined,{numeric:true})||String(a.side).localeCompare(String(b.side))||Number(a.bay)-Number(b.bay)||Number(a.row)-Number(b.row)||Number(a.position)-Number(b.position))}
+
+async function lookupBarcode(scannedRaw=''){
+  if(!db)return;let q=digitsOnly(els.lookup.value);if(q.length>4)q=q.slice(-4);if(els.lookup.value!==q)els.lookup.value=q;
+  if(!q){findResults=[];findQuery='';findScannedRaw='';renderFindResults();return}if(q.length<4){els.lookupResult.textContent=`${4-q.length} more digit${4-q.length===1?'':'s'}…`;return}
+  const requestId=++lookupRequestId;els.lookupResult.textContent=`Searching for ${q} near the end…`;let found=[];
+  if(scannedRaw){found=await idbFindByScannedBarcode(scannedRaw)}else found=await idbFindByVisible4(q);if(requestId!==lookupRequestId)return;
+  findResults=sortLocations(found);findSelectedIndex=Math.min(findSelectedIndex,Math.max(0,findResults.length-1));findQuery=q;findScannedRaw=scannedRaw;renderFindResults();
+}
+function renderFindResults(){
+  if(!findQuery){els.lookupResult.className='find-result notice';els.lookupResult.textContent='Scan an item or enter 4 consecutive digits from the ending number.';updateHud();return}
+  if(!findResults.length){els.lookupResult.className='find-result';els.lookupResult.innerHTML=`<div class="find-summary"><div class="big">No saved location containing ${escapeHtml(findQuery)} near the end</div>${findScannedRaw?`<div class="small">Scanned ${escapeHtml(findScannedRaw)}</div>`:''}</div>`;updateHud();return}
+  findSelectedIndex=Math.max(0,Math.min(findSelectedIndex,findResults.length-1));const x=findResults[findSelectedIndex];
+  const exact=findScannedRaw&&findResults.every(r=>r.barcode===findScannedRaw);const options=findResults.map((_,i)=>`<button type="button" class="option-btn ${i===findSelectedIndex?'selected':''}" data-index="${i}">${i+1}</button>`).join('');
+  els.lookupResult.className='find-result';els.lookupResult.innerHTML=`
+    <div class="find-summary"><div class="big">${findResults.length} location${findResults.length===1?'':'s'} found</div><div class="small">${exact?'Exact barcode':'Visible 4 match'} · ${escapeHtml(x.barcode)} · searched ${escapeHtml(findQuery)}</div></div>
+    <div class="option-row" aria-label="Location options">${options}</div>
+    <div class="location-picker">
+      <button type="button" class="arrow-btn" id="prevLocation" ${findResults.length<2?'disabled':''}>←</button>
+      <div class="location-card" id="selectedLocationCard">
+        <div class="location-card-title">Option ${findSelectedIndex+1} of ${findResults.length}</div>
+        <div class="edit-grid">
+          ${editCell('aisle','Aisle',x.aisle)}
+          ${editCell('side','Side',sideLabel(x.side),'side')}
+          ${editCell('bay','Bay',x.bay)}
+          ${editCell('row','Row',x.row)}
+          ${editCell('position','Position',x.position)}
+        </div>
+        <div class="notice">Tap any value to edit it. Changes save immediately.</div>
+      </div>
+      <button type="button" class="arrow-btn" id="nextLocation" ${findResults.length<2?'disabled':''}>→</button>
+    </div>`;
+  els.lookupResult.querySelectorAll('.option-btn').forEach(b=>b.addEventListener('click',()=>{findSelectedIndex=Number(b.dataset.index)||0;renderFindResults()}));
+  $('prevLocation')?.addEventListener('click',()=>{findSelectedIndex=(findSelectedIndex-1+findResults.length)%findResults.length;renderFindResults()});
+  $('nextLocation')?.addEventListener('click',()=>{findSelectedIndex=(findSelectedIndex+1)%findResults.length;renderFindResults()});
+  els.lookupResult.querySelectorAll('.edit-value').forEach(b=>b.addEventListener('click',()=>beginInlineLocationEdit(b,x)));
+  updateHud();
+}
+function editCell(field,label,value,cls=''){return`<div class="edit-cell"><div class="edit-label">${label}</div><button type="button" class="edit-value ${cls}" data-field="${field}">${escapeHtml(value)}</button></div>`}
+function beginInlineLocationEdit(button,record){
+  const field=button.dataset.field;if(field==='side'){const next=record.side==='left'?'right':'left';saveLocationEdit(record,field,next);return}
+  const input=document.createElement('input');input.className='inline-edit-input';input.value=String(record[field]??'');if(['bay','row','position'].includes(field)){input.type='number';input.min='1';input.inputMode='numeric'}button.replaceWith(input);input.focus();input.select();let done=false;
+  const finish=async()=>{if(done)return;done=true;await saveLocationEdit(record,field,input.value)};input.addEventListener('change',finish,{once:true});input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();finish()}if(e.key==='Escape'){done=true;renderFindResults()}});input.addEventListener('blur',()=>setTimeout(finish,0),{once:true});
+}
+async function saveLocationEdit(record,field,value){
+  const updated={...record};if(['bay','row','position'].includes(field)){const n=Math.max(1,Number(value)||1);updated[field]=n}else if(field==='side'){updated.side=value==='right'?'right':'left'}else if(field==='aisle'){const v=String(value).trim();if(v)updated.aisle=v}
+  updated.updatedAt=new Date().toISOString();await idbPut('locations',updated);await rebuildRowsFromLocations();await refreshSavedStats();
+  const idx=findResults.findIndex(x=>x.id===record.id);if(idx>=0)findResults[idx]=updated;findResults=sortLocations(findResults);findSelectedIndex=Math.max(0,findResults.findIndex(x=>x.id===updated.id));renderFindResults();setStatus('Location updated');
+  if(autoBackupEnabled&&backupFileHandle){try{await writeLiveBackup()}catch(_){}}
+}
+function bestFindCandidate(codes){if(!codes.length)return null;const vw=els.video.videoWidth||1,vh=els.video.videoHeight||1,cx=vw/2,cy=vh/2;return[...codes].sort((a,b)=>{const A=a.boundingBox||{x:cx,y:cy,width:0,height:0},B=b.boundingBox||{x:cx,y:cy,width:0,height:0};const ad=Math.hypot((A.x+A.width/2-cx)/vw,(A.y+A.height/2-cy)/vh),bd=Math.hypot((B.x+B.width/2-cx)/vw,(B.y+B.height/2-cy)/vh);return ad-bd})[0]}
+let lastFindRaw='',lastFindAt=0;
+async function handleFindDetections(codes){const c=bestFindCandidate(codes);if(!c?.rawValue)return;const raw=String(c.rawValue).trim(),now=Date.now();if(raw===lastFindRaw&&now-lastFindAt<1400)return;lastFindRaw=raw;lastFindAt=now;const q=last4(raw);if(q.length!==4){setStatus('Barcode did not contain 4 usable digits');return}els.lookup.value=q;findSelectedIndex=0;await lookupBarcode(raw);flashScanner();pauseScanning();setStatus(findResults.length?`Found ${findResults.length} location option${findResults.length===1?'':'s'}`:'No saved location found')}
+els.lookup.addEventListener('input',()=>{findSelectedIndex=0;lookupBarcode()});els.clearFind.addEventListener('click',()=>{els.lookup.value='';findResults=[];findQuery='';findScannedRaw='';lastFindRaw='';renderFindResults();setStatus('Find cleared')});
+
+async function refreshSavedStats(){
+  if(!db)return;const [rows,locations]=await Promise.all([idbGetAll('rows'),idbGetAll('locations')]);els.statSavedRows.textContent=rows.length;els.statSavedItems.textContent=locations.length;els.dataSavedRows.textContent=rows.length;els.dataSavedItems.textContent=locations.length;els.dataAisles.textContent=new Set(locations.map(x=>x.aisle)).size;els.dataSides.textContent=new Set(locations.map(x=>`${x.aisle}::${x.side}`)).size;
+}
+async function idbClearAll(){return new Promise((resolve,reject)=>{const tx=db.transaction(['rows','locations'],'readwrite');tx.objectStore('rows').clear();tx.objectStore('locations').clear();tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)})}
+async function clearAllData(){if(!confirm('Clear ALL saved aisle data from this browser?\n\nDownloaded JSON backup files will NOT be deleted.'))return;await idbClearAll();clearCurrent(false);findResults=[];findQuery='';els.lookup.value='';renderFindResults();await refreshSavedStats();els.backupStatus.innerHTML='<strong>Browser data cleared.</strong> Your downloaded JSON backup is still safe.';setStatus('All browser data cleared')}
+els.clearAllData.addEventListener('click',clearAllData);
+
+function downloadBlob(name,text,type){const blob=new Blob([text],{type}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+async function buildBackupPayload(){const[rows,locations]=await Promise.all([idbGetAll('rows'),idbGetAll('locations')]);return{app:'Aisle Mapper',version:5,exportedAt:new Date().toISOString(),rows,locations}}
+async function backupNow(){const p=await buildBackupPayload();downloadBlob(`aisle-mapper-backup-${dateStamp()}.json`,JSON.stringify(p,null,2),'application/json');els.backupStatus.innerHTML='<strong>Backup created.</strong> Keep the JSON file somewhere safe. It can restore the database after browser data is cleared.';setStatus(`Backup created: ${p.locations.length} locations`)}
+async function enableAutoBackup(){if(!('showSaveFilePicker'in window)){els.backupStatus.innerHTML='<strong>Automatic file backup is not supported here.</strong> Use Backup Now instead.';return}try{backupFileHandle=await showSaveFilePicker({suggestedName:'aisle-mapper-live-backup.json',types:[{description:'Aisle Mapper Backup',accept:{'application/json':['.json']}}]});autoBackupEnabled=true;els.autoBackup.textContent='Auto Backup On';await writeLiveBackup();els.backupStatus.innerHTML='<strong>Auto backup is ON.</strong> Saved rows and edits will update your chosen backup file.'}catch(e){if(e?.name!=='AbortError')setStatus(`Auto backup failed: ${e.message||e}`)}}
+async function writeLiveBackup(){if(!backupFileHandle)return;const p=await buildBackupPayload(),w=await backupFileHandle.createWritable();await w.write(JSON.stringify(p,null,2));await w.close()}
+async function exportTxt(){const l=sortLocations(await idbGetAll('locations')),lines=['AISLE MAPPER EXPORT',`Created: ${new Date().toLocaleString()}`,''];let last='';for(const x of l){const k=rowKey(x);if(k!==last){if(last)lines.push('');lines.push(`[${x.aisle}] ${sideLabel(x.side)} | Bay ${x.bay} | Row ${x.row}`);last=k}lines.push(`Position ${x.position} | ${x.barcode}`)}downloadBlob(`aisle-mapper-${dateStamp()}.txt`,lines.join('\n'),'text/plain')}
+async function exportCsv(){const l=sortLocations(await idbGetAll('locations')),lines=['barcode,aisle,side,bay,row,position,direction,updatedAt'];for(const x of l)lines.push([x.barcode,x.aisle,x.side,x.bay,x.row,x.position,x.direction,x.updatedAt].map(csvEscape).join(','));downloadBlob(`aisle-mapper-${dateStamp()}.csv`,lines.join('\n'),'text/csv')}
+async function importJson(file){const data=JSON.parse(await file.text());if(!Array.isArray(data.locations))throw new Error('Not an Aisle Mapper backup');for(const loc of data.locations){const n={...loc,id:loc.id||newId(),side:loc.side==='right'?'right':'left',bay:Math.max(1,Number(loc.bay)||1),row:Math.max(1,Number(loc.row)||1),position:Math.max(1,Number(loc.position)||1)};await idbPut('locations',n)}await rebuildRowsFromLocations();await refreshSavedStats();setStatus(`Restored ${data.locations.length} locations`)}
+function csvEscape(v){const s=String(v??'');return/[",\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s}
+function dateStamp(){const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+function escapeHtml(s){return String(s).replace(/[&<>"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]))}
+els.backupNow.addEventListener('click',backupNow);els.autoBackup.addEventListener('click',enableAutoBackup);els.exportTxt.addEventListener('click',exportTxt);els.exportCsv.addEventListener('click',exportCsv);els.restore.addEventListener('click',()=>els.importFile.click());els.importFile.addEventListener('change',async()=>{const f=els.importFile.files?.[0];if(!f)return;try{await importJson(f);els.backupStatus.innerHTML='<strong>Restore complete.</strong> Your saved locations are back.'}catch(e){alert(`Restore failed: ${e.message||e}`)}finally{els.importFile.value=''}});
+
+window.addEventListener('resize',()=>drawOverlay(lastFrameDetections));document.addEventListener('visibilitychange',()=>{if(document.hidden&&scanning)pauseScanning()});window.addEventListener('beforeunload',()=>{try{stream?.getTracks?.().forEach(t=>t.stop())}catch(_){}});
+
+(async function boot(){
+  try{db=await openDb();loadSetupPreference();syncSideButtons();updateSetupSummary();await refreshSavedStats();await initDetector();renderList();renderFindResults();els.scannerPanel.remove();switchTab('setup');setStatus('Ready')}catch(err){console.error(err);setStatus(`Startup error: ${err.message||err}`)}
+})();
+})();
+</script>
+</body>
+</html>
